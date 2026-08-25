@@ -9,11 +9,10 @@ ferramenta com leitor de RAW).
 
 O formato `.gridcal` é um zip de CSVs com o modelo de objetos interno
 do GridCal/VeraGrid (UUIDs, tabelas relacionais de área/zona/país
-etc.) — escrevê-lo à mão é caro e frágil, e amarra o parser à versão
-interna daquele formato. O RAW, por outro lado:
+etc.) — e amarra o parser à versão interna daquele formato. O RAW, por outro lado:
 
 - é um formato texto por registro, orientado a colunas fixas — mais
-  parecido em espírito com o próprio PWF, o que simplifica o mapeamento
+  parecido com o próprio PWF (formato do ANAREDE), o que simplifica o mapeamento
   campo a campo;
 - é um padrão de fato da indústria (PSS/E), com leitores maduros em
   praticamente todas as ferramentas de análise de redes, incluindo um
@@ -21,13 +20,13 @@ interna daquele formato. O RAW, por outro lado:
 - desacopla este projeto de mudanças internas no formato `.gridcal`.
 
 Ou seja: em vez de escrever *e manter* um exportador para o formato
-interno do VeraGrid, geramos um RAW correto e deixamos o importador
+interno do VeraGrid, o projeto buscou gerar um RAW correto e deixar o importador
 RAW do próprio VeraGrid fazer o trabalho pesado.
 
 ## Instalação
 
 ```bash
-git clone <url-do-repo>
+git clone https://github.com/seu-usuario/seu-repositorio.git
 cd pwf2raw
 pip install -e ".[dev]"
 ```
@@ -112,7 +111,7 @@ No exemplo sintético pequeno (`tests/data/mini_4bus.pwf`, 4 barras) o
 fluxo de potência **converge normalmente** — ver
 `tests/test_raw_writer.py::test_write_raw_opens_in_veragrid`.
 
-### Roadmap (por prioridade sugerida)
+### Roadmap (por prioridade - sugerida para quem quiser contribuir)
 
 1. `DELO`/`DCNV`/`DCCV`/`DCLI`/`DCBA` (HVDC) — provável causa da
    não-convergência no deck completo.
