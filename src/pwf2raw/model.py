@@ -84,6 +84,79 @@ class Transformer2W:
     rate_b: float = 0.0
     rate_c: float = 0.0
     in_service: bool = True
+    # Controle de tap sob carga (LTC), do DLIN: faixa de tap, barra
+    # controlada e numero de posicoes. ltc=False => tap fixo.
+    ltc: bool = False
+    tap_min: float = 0.9
+    tap_max: float = 1.1
+    controlled_bus: int = 0
+    n_taps: int = 33
+
+
+@dataclass
+class SwitchedShunt:
+    """Banco chaveavel (DBSH) ou compensador estatico (DCER)."""
+    bus: int
+    binit: float          # Mvar iniciais em 1.0 pu
+    v_min: float = 0.9
+    v_max: float = 1.1
+    controlled_bus: int = 0
+    modsw: int = 1        # 0=fixo, 1=discreto, 2=continuo
+    blocks: list = dc_field(default_factory=list)  # [(n_steps, Mvar/step)]
+    in_service: bool = True
+
+
+@dataclass
+class DcConverter:
+    ac_bus: int
+    dc_bus: int
+    neutral_bus: int = 0
+    kind: str = "R"       # R = retificador, I = inversor
+    control_type: str = ""
+    setpoint: float = 0.0
+    bridges: int = 1
+    xc_pct: float = 0.0
+    ebas_kv: float = 0.0
+    angle_setpoint: float = 0.0
+    angle_min: float = 5.0
+    angle_max: float = 90.0
+    tap_min: float = 0.9
+    tap_max: float = 1.1
+
+
+@dataclass
+class DcLink:
+    """Elo CC classico (LCC), montado a partir de DELO/DCBA/DCLI/DCNV/DCCV."""
+    number: int
+    name: str
+    kv: float = 0.0
+    mw: float = 0.0
+    r_ohm: float = 0.0
+    in_service: bool = True
+    rectifier: "DcConverter | None" = None
+    inverter: "DcConverter | None" = None
+
+
+@dataclass
+class VscLink:
+    """Elo HVDC do tipo VSC (registro DVSC)."""
+    number: int
+    name: str
+    rectifier_bus: int
+    inverter_bus: int
+    mw: float = 0.0
+    mva_base: float = 0.0
+    vcc_kv: float = 0.0
+    vcc_base_kv: float = 0.0
+    r_ohm: float = 0.0
+    in_service: bool = True
+
+
+@dataclass
+class Area:
+    number: int
+    name: str = ""
+    exchange: float = 0.0
 
 
 @dataclass
@@ -96,6 +169,10 @@ class Network:
     generators: list[Generator] = dc_field(default_factory=list)
     branches: list[Branch] = dc_field(default_factory=list)
     transformers: list[Transformer2W] = dc_field(default_factory=list)
+    switched_shunts: list[SwitchedShunt] = dc_field(default_factory=list)
+    dc_links: list[DcLink] = dc_field(default_factory=list)
+    vsc_links: list[VscLink] = dc_field(default_factory=list)
+    areas: list[Area] = dc_field(default_factory=list)
 
     # dados de apoio (não exportados, mas úteis para diagnóstico)
     warnings: list[str] = dc_field(default_factory=list)
@@ -110,5 +187,9 @@ class Network:
             f"{len(self.generators)} geradores, "
             f"{len(self.branches)} linhas, "
             f"{len(self.transformers)} transformadores 2 enrolamentos, "
+            f"{len(self.switched_shunts)} shunts chaveaveis, "
+            f"{len(self.dc_links)} elos CC, "
+            f"{len(self.vsc_links)} elos VSC, "
+            f"{len(self.areas)} areas, "
             f"{len(self.warnings)} avisos"
         )

@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.venv/
+venv/
+
+# Arquivos de saida gerados (build artifacts) - nao versionar
+*.raw
+
+# Decks completos do ONS nao devem ser versionados (arquivos grandes,
+# dados possivelmente sensiveis/operacionais). Fixtures pequenas e
+# sinteticas ficam em tests/data/ e sao versionadas normalmente.
+/*.pwf
