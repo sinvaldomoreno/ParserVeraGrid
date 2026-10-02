@@ -165,25 +165,63 @@ Dependendo do descompactador, os acentos dos nomes podem aparecer escapados
 ### Resultados
 
 - **96/96** arquivos convertidos sem erro.
-- Onde o Newton-Raphson converge: **ΔV mediano de 0,0005 pu**, 96–97% das
-  barras dentro de 0,02 pu e ângulo mediano de **~0,3°** em relação à
-  solução do ANAREDE.
+- Onde o Newton-Raphson converge: **ΔV mediano de 0,0005 a 0,0036 pu**, 93 a
+  97% das barras dentro de 0,02 pu e ângulo mediano de **0,3 a 0,4°** em
+  relação à solução do ANAREDE. Os melhores casos (patamares de máxima
+  diurna) ficam em 0,0005 pu e 97%.
 
 Qualidade por patamar no ano de 2035, medida na iteração do Newton-Raphson
 puro, inclusive onde ele não acusa convergência:
 
 | Patamar | ΔV mediano (pu) | Barras a até 0,02 pu | Δ ângulo mediano | Barras que não assentam |
 |---|---|---|---|---|
-| 1 | 0,0005 | 94,7% | 3,76° | 9 |
-| 2 | 0,0005 | 94,9% | 1,70° | 5 |
-| 3 | 0,0049 | 86,5% | 20,58° | 60 |
-| 4 | 0,0050 | 87,4% | 3,99° | 48 |
-| 5 | 0,0035 | 90,7% | 2,17° | 51 |
-| 6 | 0,0038 | 90,7% | 2,39° | 17 |
-| 7 | 0,0005 | 95,2% | 1,07° | 8 |
-| 8 | 0,0006 | 94,3% | 4,60° | 8 |
+| 1 Máxima Diurna Seco | 0,0005 | 94,7% | 3,76° | 6 |
+| 2 Máxima Diurna Úmido | 0,0005 | 94,9% | 1,70° | 4 |
+| 3 Máxima Noturna Seco | 0,0048 | 86,9% | 17,59° | 57 |
+| 4 Máxima Noturna Úmido | 0,0050 | 87,4% | 3,99° | 45 |
+| 5 Mínima Noturna Seco | 0,0032 | 93,4% | 0,40° | 0 |
+| 6 Mínima Noturna Úmido | 0,0036 | 92,9% | 0,34° | 0 |
+| 7 Máxima Coincidente | 0,0005 | 95,2% | 1,07° | 7 |
+| 8 Mínima Diurna Coincidente | 0,0006 | 94,3% | 4,60° | 8 |
 
-O patamar 3 destoa (ângulo mediano de 20,6°); a causa não foi identificada.
+O ano de 2035 tem um desvio de ângulo fora do padrão no patamar 3. Isso **não
+é característica do patamar**: rodando o patamar 3 nos doze anos do horizonte,
+o ΔV mediano fica entre 0,0045 e 0,0054 pu e o ângulo mediano entre 0,90° e
+3,30° em dez deles, com duas exceções — 2039 (9,00°) e 2035 (17,59°).
+
+Investigando o caso de 2035 contra os anos vizinhos: as redes são praticamente
+idênticas (mesmas 13.203 barras, 10.758 contra 10.759 linhas, mesmas 4 barras
+de referência, mesma região de Ilha Solteira com as mesmas 37 ligações), e o
+desvio não é um subsistema deslocado em fase — o histograma é um espalhamento
+contínuo por todas as áreas e níveis de tensão. Trocando de método, o desvio
+varia de 13,8° (LM) a 19,3° (NR), e com o LM caem para 18 as barras que não
+assentam, sem que o ângulo volte ao normal.
+
+**Conclusão: em casos não convergidos, o ângulo mede quão longe a iteração
+parou, não a correção do modelo.** Nos casos que convergem o ângulo mediano
+fica em 0,3 a 0,4°; nos que não convergem varia de 1° a 19° conforme o ponto
+em que o método estaciona. O ΔV é o indicador robusto, e permanece entre
+0,0045 e 0,0054 pu nos doze anos. O caso de 2035 simplesmente estaciona mais
+longe que os vizinhos.
+
+| Ano | ΔV mediano | Barras a 0,02 pu | Δ ângulo mediano | Não assentam |
+|---|---|---|---|---|
+| 2029 | 0,0046 | 91,4% | 1,88° | 22 |
+| 2030 | 0,0045 | 91,2% | 2,72° | 25 |
+| 2031 | 0,0047 | 90,4% | 0,90° | 22 |
+| 2032 | 0,0049 | 88,9% | 2,56° | 27 |
+| 2033 | 0,0049 | 88,8% | 1,30° | 36 |
+| 2034 | 0,0045 | 89,2% | 3,30° | 21 |
+| 2035 | 0,0048 | 86,9% | 17,59° | 57 |
+| 2036 | 0,0050 | 87,6% | 2,31° | 27 |
+| 2037 | 0,0050 | 86,9% | 1,60° | 19 |
+| 2038 | 0,0050 | 87,1% | 2,09° | 33 |
+| 2039 | 0,0050 | 86,1% | 9,00° | 35 |
+| 2040 | 0,0054 | 84,7% | 5,28° | 15 |
+
+A estabilidade do ΔV ao longo de doze anos, com a rede crescendo de 12.969
+para 13.323 barras, é evidência de que a conversão está correta e de que a
+não-convergência nesse patamar é condição de operação, não erro de leitura.
 
 **Convergência não é a métrica de correção.** De 2029 a 2039 (88 casos; os
 8 de 2040 não foram rodados na validação completa), 24 acusam convergência:

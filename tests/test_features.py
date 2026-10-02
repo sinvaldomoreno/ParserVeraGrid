@@ -89,7 +89,14 @@ def test_dc_link_written_as_dummy_generators(tmp_path, dc_net):
     write_raw(dc_net, out)
     text = out.read_text(encoding="latin-1")
     gen_block = text.split("BEGIN GENERATOR DATA")[1].split("END OF GENERATOR DATA")[0]
-    dummy = [l for l in gen_block.splitlines() if "'D0" in l]
+    # identificados pela barra conversora e pela potencia, nao pelo rotulo:
+    # o ID e atribuido por barra para garantir unicidade no RAW
+    dc_buses = {dc_net.dc_links[0].rectifier.ac_bus,
+                dc_net.dc_links[0].inverter.ac_bus}
+    dummy = [l for l in gen_block.splitlines()
+             if l.strip() and not l.startswith("0 ")
+             and int(l.split(",")[0]) in dc_buses
+             and abs(float(l.split(",")[2])) > 1e-6]
     assert len(dummy) == 2
     powers = sorted(float(l.split(",")[2]) for l in dummy)
     assert powers[0] == pytest.approx(-80.0)

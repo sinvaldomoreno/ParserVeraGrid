@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1
+
+### Corrigido
+- **Identificadores duplicados no RAW** (`Local ID duplicate` ao abrir no
+  VeraGrid): geradores acoplados dos elos CC, shunts de linha do `DSHL` e
+  bancos chaveáveis na mesma barra. IDs passam a ser únicos por barra e os
+  bancos da mesma barra são agregados num registro.
+
 ## 1.0.0
 
 Primeira versão completa. Substitui a 0.1.0 publicada.

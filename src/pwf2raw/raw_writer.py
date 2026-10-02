@@ -16,6 +16,40 @@ from pathlib import Path
 from .model import Network
 
 
+_ID_POOL = (
+    [str(i) for i in range(1, 10)]
+    + [chr(c) for c in range(ord("A"), ord("Z") + 1)]
+    + [f"{a}{b}" for a in "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ" for b in "0123456789"]
+)
+
+
+def _unique_ids(keys: list[tuple[int, str]]) -> list[str]:
+    """Garante identificadores unicos por barra.
+
+    No RAW, um dispositivo e identificado pelo par (barra, ID) e o ID tem
+    2 caracteres. Repetir o par faz o leitor acusar "Local ID duplicate" e
+    descartar ou sobrescrever dispositivos.
+
+    Dois casos reais que isso corrige: os quatro polos de um elo CC
+    compartilham a barra conversora, e duas linhas com reator de
+    extremidade (DSHL) podem terminar na mesma barra - eram 152
+    ocorrencias no caso 2029_1 do PDE.
+
+    O ID original e preservado quando ainda estiver livre naquela barra;
+    senao recebe o proximo disponivel.
+    """
+    usados: dict[int, set[str]] = {}
+    out: list[str] = []
+    for bus, ident in keys:
+        livres = usados.setdefault(bus, set())
+        escolhido = (ident or "1")[:2]
+        if escolhido in livres:
+            escolhido = next(c for c in _ID_POOL if c not in livres)
+        livres.add(escolhido)
+        out.append(escolhido)
+    return out
+
+
 def _q(text: str, width: int) -> str:
     return f"'{text[:width]:<{width}}'"
 
@@ -58,20 +92,22 @@ def write_raw(
     lines.append("0 / END OF BUS DATA, BEGIN LOAD DATA")
 
     # --- Load data ---
-    for ld in net.loads:
+    load_ids = _unique_ids([(l.bus, l.id) for l in net.loads])
+    for ld, lid in zip(net.loads, load_ids):
         status = 1 if ld.in_service else 0
         lines.append(
-            f"{ld.bus:>6d},{_q(ld.id, 2)},{status},   1,   1,"
+            f"{ld.bus:>6d},{_q(lid, 2)},{status},   1,   1,"
             f"{ld.p:>11.3f},{ld.q:>11.3f},     0.000,     0.000,"
             f"     0.000,    -0.000,   1,1"
         )
     lines.append("0 / END OF LOAD DATA, BEGIN FIXED SHUNT DATA")
 
     # --- Fixed shunt data ---
-    for sh in net.fixed_shunts:
+    shunt_ids = _unique_ids([(s.bus, s.id) for s in net.fixed_shunts])
+    for sh, sid in zip(net.fixed_shunts, shunt_ids):
         status = 1 if sh.in_service else 0
         lines.append(
-            f"{sh.bus:>6d},{_q(sh.id, 2)},{status},{sh.g:>10.3f},{sh.b:>10.3f}"
+            f"{sh.bus:>6d},{_q(sid, 2)},{status},{sh.g:>10.3f},{sh.b:>10.3f}"
         )
     lines.append("0 / END OF FIXED SHUNT DATA, BEGIN GENERATOR DATA")
 
@@ -91,19 +127,23 @@ def write_raw(
             dummy_gens.append((link.rectifier.ac_bus, -link.mw))
             dummy_gens.append((link.inverter.ac_bus, link.mw - loss))
 
-    for gen in net.generators:
+    gen_ids = _unique_ids(
+        [(g.bus, g.id) for g in net.generators] + [(b, "D") for b, _ in dummy_gens]
+    )
+    for gen, gid in zip(net.generators, gen_ids):
         status = 1 if gen.in_service else 0
         lines.append(
-            f"{gen.bus:>6d},{_q(gen.id, 2)},{gen.pg:>10.3f},{gen.qg:>10.3f},"
+            f"{gen.bus:>6d},{_q(gid, 2)},{gen.pg:>10.3f},{gen.qg:>10.3f},"
             f"{gen.qmax:>10.3f},{gen.qmin:>10.3f},{gen.vs:>8.5f},    0,"
             f"{gen.mbase:>10.3f},0.00000,1.00000,0.00000,0.00000,1.00000,"
             f"{status},{100.0:>7.1f},{gen.pmax:>10.3f},{gen.pmin:>10.3f},"
             "   1,1.0000,   0,1.0000,   0,1.0000,   0,1.0000,0, 1.0000"
         )
-    for i, (bus, p) in enumerate(dummy_gens):
+    dummy_ids = gen_ids[len(net.generators):]
+    for (bus, p), gid in zip(dummy_gens, dummy_ids):
         # Gerador "dummy" de elo CC: P especificado, Q livre.
         lines.append(
-            f"{bus:>6d},{_q(f'D{i % 90:02d}', 2)},{p:>10.3f},{0.0:>10.3f},"
+            f"{bus:>6d},{_q(gid, 2)},{p:>10.3f},{0.0:>10.3f},"
             f"{9999.0:>10.3f},{-9999.0:>10.3f},{1.0:>8.5f},    0,"
             f"{100.0:>10.3f},0.00000,1.00000,0.00000,0.00000,1.00000,"
             f"1,{100.0:>7.1f},{abs(p) + 1:>10.3f},{-abs(p) - 1:>10.3f},"
@@ -242,15 +282,27 @@ def write_raw(
     lines.append(f"    1,{_q('1', 12)}")
     lines.append("0 / END OF OWNER DATA, BEGIN FACTS CONTROL DEVICE DATA")
     lines.append("0 / END OF FACTS CONTROL DEVICE DATA, BEGIN SWITCHED SHUNT DATA")
+    # No RAW o shunt chaveavel e identificado SO pela barra: dois bancos
+    # na mesma barra produziriam registros duplicados (65 barras no caso
+    # 2029_1 do PDE). Bancos da mesma barra sao agregados num registro -
+    # somando o Mvar inicial e concatenando os blocos, que e o limite de 8.
+    por_barra: dict[int, list] = {}
     for sh in net.switched_shunts:
-        status = 1 if sh.in_service else 0
+        if sh.in_service:
+            por_barra.setdefault(sh.bus, []).append(sh)
+    for bus, bancos in por_barra.items():
+        base = bancos[0]
+        binit = sum(b.binit for b in bancos)
         blocks = ""
-        for n_steps, step_mvar in sh.blocks[:8]:
-            blocks += f",{int(n_steps):>4d},{step_mvar:>10.3f}"
+        for banco in bancos:
+            for n_steps, step_mvar in banco.blocks:
+                if blocks.count(",") >= 16:  # 8 blocos = 16 campos
+                    break
+                blocks += f",{int(n_steps):>4d},{step_mvar:>10.3f}"
         lines.append(
-            f"{sh.bus:>6d},{sh.modsw},{0},{1.0:>7.4f},{sh.v_max:>8.5f},"
-            f"{sh.v_min:>8.5f},{sh.controlled_bus:>6d},{100.0:>7.1f},"
-            f"{_q('', 12)},{sh.binit:>10.3f}{blocks}"
+            f"{bus:>6d},{base.modsw},{0},{1.0:>7.4f},{base.v_max:>8.5f},"
+            f"{base.v_min:>8.5f},{base.controlled_bus:>6d},{100.0:>7.1f},"
+            f"{_q('', 12)},{binit:>10.3f}{blocks}"
         )
     lines.append("0 /END OF SWITCHED SHUNT DATA, BEGIN GNE DEVICE DATA")
     lines.append("0 /END OF GNE DEVICE DATA")
